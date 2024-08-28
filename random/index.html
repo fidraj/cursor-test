@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RNG Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #buttons {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+        #visualizationMethod {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>RNG Algorithm Visualization</h1>
+    <div id="buttons">
+        <button onclick="generateAndVisualize('lcg')">Linear Congruential Generator</button>
+        <button onclick="generateAndVisualize('middleSquare')">Middle Square Method</button>
+        <button onclick="generateAndVisualize('xorshift')">Xorshift</button>
+        <button onclick="generateAndVisualize('mersenneTwister')">Mersenne Twister</button>
+        <button onclick="generateAndVisualize('parkMiller')">Park-Miller</button>
+        <button onclick="generateAndVisualize('blumBlumShub')">Blum Blum Shub</button>
+        <button onclick="generateAndVisualize('patternRNG')">Pattern RNG</button>
+    </div>
+    <select id="visualizationMethod">
+        <option value="scatter">Scatter Plot</option>
+        <option value="line">Line Plot</option>
+        <option value="heatmap">Heat Map</option>
+    </select>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function lcg(seed) {
+            const a = 1664525;
+            const c = 1013904223;
+            const m = Math.pow(2, 32);
+            let x = seed;
+            return function() {
+                x = (a * x + c) % m;
+                return x / m;
+            };
+        }
+
+        function middleSquare(seed) {
+            let x = seed;
+            return function() {
+                x = Math.floor(Math.pow(x, 2) / 100) % 10000;
+                return x / 10000;
+            };
+        }
+
+        function xorshift(seed) {
+            let x = seed;
+            return function() {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                return Math.abs(x) / Math.pow(2, 32);
+            };
+        }
+
+        function mersenneTwister(seed) {
+            const N = 624;
+            const M = 397;
+            const MATRIX_A = 0x9908b0df;
+            const UPPER_MASK = 0x80000000;
+            const LOWER_MASK = 0x7fffffff;
+
+            let mt = new Array(N);
+            let mti = N + 1;
+
+            function init_genrand(s) {
+                mt[0] = s >>> 0;
+                for (mti = 1; mti < N; mti++) {
+                    mt[mti] = (1812433253 * (mt[mti-1] ^ (mt[mti-1] >>> 30)) + mti);
+                    mt[mti] >>>= 0;
+                }
+            }
+
+            function genrand_int32() {
+                let y;
+                const mag01 = [0x0, MATRIX_A];
+
+                if (mti >= N) {
+                    let kk;
+
+                    if (mti === N+1) {
+                        init_genrand(5489);
+                    }
+
+                    for (kk = 0; kk < N - M; kk++) {
+                        y = (mt[kk] & UPPER_MASK) | (mt[kk+1] & LOWER_MASK);
+                        mt[kk] = mt[kk+M] ^ (y >>> 1) ^ mag01[y & 0x1];
+                    }
+                    for (; kk < N - 1; kk++) {
+                        y = (mt[kk] & UPPER_MASK) | (mt[kk+1] & LOWER_MASK);
+                        mt[kk] = mt[kk+(M-N)] ^ (y >>> 1) ^ mag01[y & 0x1];
+                    }
+                    y = (mt[N-1] & UPPER_MASK) | (mt[0] & LOWER_MASK);
+                    mt[N-1] = mt[M-1] ^ (y >>> 1) ^ mag01[y & 0x1];
+
+                    mti = 0;
+                }
+
+                y = mt[mti++];
+
+                y ^= (y >>> 11);
+                y ^= (y << 7) & 0x9d2c5680;
+                y ^= (y << 15) & 0xefc60000;
+                y ^= (y >>> 18);
+
+                return y >>> 0;
+            }
+
+            init_genrand(seed);
+
+            return function() {
+                return genrand_int32() / (1 << 31 >>> 0);
+            };
+        }
+
+        function parkMiller(seed) {
+            const a = 16807;
+            const m = 2147483647;
+            let state = seed % m;
+
+            return function() {
+                state = (a * state) % m;
+                return state / m;
+            };
+        }
+
+        function blumBlumShub(seed) {
+            const p = 30000000091n;
+            const q = 40000000003n;
+            const M = p * q;
+            let x = BigInt(seed) % M;
+
+            return function() {
+                x = (x * x) % M;
+                return Number(x % 1000000n) / 1000000;
+            };
+        }
+
+        function patternRNG(seed) {
+            let x = seed;
+            let y = seed;
+            return function() {
+                x = (x * 1103515245 + 12345) & 0x7fffffff;
+                y = (y * 1103515245 + 12345) & 0x7fffffff;
+                return (Math.sin(x / 1000000 * Math.PI) * Math.cos(y / 1000000 * Math.PI) + 1) / 2;
+            };
+        }
+
+        function generateAndVisualize(algorithm) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let rng;
+            switch (algorithm) {
+                case 'lcg':
+                    rng = lcg(Date.now());
+                    break;
+                case 'middleSquare':
+                    rng = middleSquare(Date.now() % 10000);
+                    break;
+                case 'xorshift':
+                    rng = xorshift(Date.now());
+                    break;
+                case 'mersenneTwister':
+                    rng = mersenneTwister(Date.now());
+                    break;
+                case 'parkMiller':
+                    rng = parkMiller(Date.now());
+                    break;
+                case 'blumBlumShub':
+                    rng = blumBlumShub(Date.now());
+                    break;
+                case 'patternRNG':
+                    rng = patternRNG(Date.now());
+                    break;
+            }
+
+            const visualizationMethod = document.getElementById('visualizationMethod').value;
+
+            switch (visualizationMethod) {
+                case 'scatter':
+                    visualizeScatter(rng);
+                    break;
+                case 'line':
+                    visualizeLine(rng);
+                    break;
+                case 'heatmap':
+                    visualizeHeatmap(rng);
+                    break;
+            }
+        }
+
+        function visualizeScatter(rng) {
+            for (let i = 0; i < 10000; i++) {
+                const x = Math.floor(rng() * canvas.width);
+                const y = Math.floor(rng() * canvas.height);
+                
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+
+        function visualizeLine(rng) {
+            ctx.beginPath();
+            ctx.moveTo(0, rng() * canvas.height);
+            for (let x = 1; x < canvas.width; x++) {
+                ctx.lineTo(x, rng() * canvas.height);
+            }
+            ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+            ctx.stroke();
+        }
+
+        function visualizeHeatmap(rng) {
+            const cellSize = 10;
+            const cols = Math.floor(canvas.width / cellSize);
+            const rows = Math.floor(canvas.height / cellSize);
+            const heatmap = Array(rows).fill().map(() => Array(cols).fill(0));
+
+            for (let i = 0; i < 100000; i++) {
+                const x = Math.floor(rng() * cols);
+                const y = Math.floor(rng() * rows);
+                heatmap[y][x]++;
+            }
+
+            const maxValue = Math.max(...heatmap.flat());
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const intensity = heatmap[y][x] / maxValue;
+                    ctx.fillStyle = `rgba(0, 0, 255, ${intensity})`;
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

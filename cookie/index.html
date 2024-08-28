@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Clicker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        #cookie {
+            width: 200px;
+            height: 200px;
+            background-color: red;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+            margin: 20px auto;
+        }
+        #cookie:active {
+            transform: scale(0.95);
+        }
+        #upgrades {
+            margin-top: 20px;
+        }
+        .upgrade {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cookie Clicker</h1>
+    <p>Cookies: <span id="cookieCount">0</span></p>
+    <div id="cookie"></div>
+    <p>Cookies per second: <span id="cps">0</span></p>
+    <div id="upgrades">
+        <button id="buyAutoClicker" class="upgrade">Buy Auto Clicker (Cost: 10 cookies)</button>
+        <button id="buyClickMultiplier" class="upgrade">Buy Click Multiplier (Cost: 50 cookies)</button>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
